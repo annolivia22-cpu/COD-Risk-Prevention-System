@@ -1,0 +1,6 @@
+# examples
+order_id,order_value,risk_percentage,decision,reason,address_status,review_status
+TEST001,649,8.5,Ship as-is,Low predicted RTO risk,Valid,Not required
+TEST002,799,22.4,Ship after confirmation,Moderate predicted RTO risk; customer confirmation required,Valid,Pending confirmation
+TEST003,999,42.7,Nudge to prepaid,Elevated predicted RTO risk; prepaid option recommended,Valid,Prepaid offer pending
+TEST004,599,68.2,Hold for review,High predicted RTO risk; manual verification required,Needs review,Manual review pending

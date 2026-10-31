@@ -1,9 +1,10 @@
-
 {
-    "ship_threshold": 0.15,
-    "confirm_threshold": 0.30,
-    "prepaid_threshold": 0.50,
+    "ship_threshold": 0.32,
+    "confirm_threshold": 0.39,
+    "prepaid_threshold": 0.5,
     "prepaid_discount": 20,
     "confirmation_timeout_hours": 24,
-    "auto_cancel": false
+    "auto_cancel": false,
+    "confirmation_effectiveness": 0.25,
+    "prepaid_conversion_rate": 0.3
 }

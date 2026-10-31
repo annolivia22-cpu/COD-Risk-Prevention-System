@@ -1,8 +1,9 @@
 
 import pandas as pd
 import joblib
+from pathlib import Path
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -14,22 +15,39 @@ from sklearn.metrics import (
     roc_auc_score
 )
 
-# Load data
-df = pd.read_csv("data/orders_sample.csv")
+# Project paths
+DATA_PATH = Path("data/orders_sample.csv")
+MODEL_DIR = Path("models")
+MODEL_PATH = MODEL_DIR / "risk_model.pkl"
 
-# Standardise status
+# Create model directory if missing
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+# Load dataset
+df = pd.read_csv(DATA_PATH)
+
+print("Original dataset:", df.shape)
+
+# Clean status
 df["final_status"] = (
-    df["final_status"].astype(str).str.strip().str.upper()
+    df["final_status"]
+    .astype(str)
+    .str.strip()
+    .str.upper()
 )
 
 # Remove exact duplicate rows
 df = df.drop_duplicates()
 
-# Keep only orders with known outcomes
-df = df[df["final_status"].isin(["DELIVERED", "RTO"])].copy()
+# Keep only completed orders
+df = df[
+    df["final_status"].isin(["DELIVERED", "RTO"])
+].copy()
 
-# Create target
-df["rto"] = (df["final_status"] == "RTO").astype(int)
+# Target variable
+df["rto"] = (
+    df["final_status"] == "RTO"
+).astype(int)
 
 # Features available before shipping
 numeric_features = [
@@ -49,30 +67,46 @@ categorical_features = [
 X = df[numeric_features + categorical_features]
 y = df["rto"]
 
-# Split data into training and testing
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
+# Keep the same customer in only one split
+groups = df["phone"].fillna("UNKNOWN").astype(str)
+
+splitter = GroupShuffleSplit(
+    n_splits=1,
+    test_size=0.20,
+    random_state=42
 )
 
-# Preprocessing
+train_idx, test_idx = next(
+    splitter.split(X, y, groups)
+)
+
+X_train = X.iloc[train_idx]
+X_test = X.iloc[test_idx]
+
+y_train = y.iloc[train_idx]
+y_test = y.iloc[test_idx]
+
+print("Training orders:", len(X_train))
+print("Testing orders:", len(X_test))
+
+# Numeric preprocessing
 numeric_transformer = Pipeline([
     ("imputer", SimpleImputer(strategy="median"))
 ])
 
+# Categorical preprocessing
 categorical_transformer = Pipeline([
     ("imputer", SimpleImputer(strategy="most_frequent")),
     ("encoder", OneHotEncoder(handle_unknown="ignore"))
 ])
 
+# Combine preprocessing
 preprocessor = ColumnTransformer([
     ("num", numeric_transformer, numeric_features),
     ("cat", categorical_transformer, categorical_features)
 ])
 
-# Model
+# Random Forest model
 model = Pipeline([
     ("preprocessor", preprocessor),
     ("classifier", RandomForestClassifier(
@@ -84,22 +118,36 @@ model = Pipeline([
     ))
 ])
 
-# Train
+# Train model
+print("\nTraining model...")
+
 model.fit(X_train, y_train)
 
-# Evaluate
+# Predictions
 predictions = model.predict(X_test)
+
 probabilities = model.predict_proba(X_test)[:, 1]
 
-print("Confusion Matrix:")
+# Evaluation
+print("\nCONFUSION MATRIX")
 print(confusion_matrix(y_test, predictions))
 
-print("\nClassification Report:")
-print(classification_report(y_test, predictions))
+print("\nCLASSIFICATION REPORT")
+print(
+    classification_report(
+        y_test,
+        predictions,
+        zero_division=0
+    )
+)
 
-print("ROC AUC:", roc_auc_score(y_test, probabilities))
+print(
+    "\nROC AUC:",
+    round(roc_auc_score(y_test, probabilities), 3)
+)
 
 # Save model
-joblib.dump(model, "models/risk_model.pkl")
+joblib.dump(model, MODEL_PATH)
 
-print("\nModel trained and saved successfully!")
+print("\nModel saved successfully!")
+print("Location:", MODEL_PATH)

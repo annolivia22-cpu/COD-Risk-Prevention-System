@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+.DS_Store
+
+# Customer and order data
+data/orders_sample.csv
+data/processed_orders.csv
+
+# Other private data files
+*.xlsx
+*.xls
